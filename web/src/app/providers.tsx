@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { queryClient } from '../lib/query-client'
+import { AuthProvider } from './auth-provider'
 
 interface AppProvidersProps {
   children: ReactNode
@@ -10,7 +11,9 @@ interface AppProvidersProps {
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <BrowserRouter>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>{children}</AuthProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   )
 }

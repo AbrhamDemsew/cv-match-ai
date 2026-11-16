@@ -41,7 +41,7 @@ export function SiteFooter() {
           <p>
             © {copyrightYear} {APP_NAME}
           </p>
-          <p>Phase 1 foundation · Authentication and analysis are not yet enabled.</p>
+          <p>Phase 2 · Authentication and dashboard enabled · CV analysis is not yet available.</p>
         </div>
       </div>
     </footer>

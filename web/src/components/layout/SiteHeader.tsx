@@ -1,6 +1,9 @@
 import { Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
+import { useAuth } from '../../hooks/use-auth'
+import { getInitials } from '../../utils/user'
+import { ButtonLink } from '../common/ButtonLink'
 import { Brand } from './Brand'
 
 const navigation = [
@@ -18,6 +21,7 @@ function navLinkClasses(isActive: boolean): string {
 }
 
 export function SiteHeader() {
+  const { status, user, isAuthenticated } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
@@ -53,6 +57,37 @@ export function SiteHeader() {
           ))}
         </nav>
 
+        <div className="hidden items-center gap-2 md:flex">
+          {status === 'loading' ? (
+            <div className="h-9 w-28 animate-pulse rounded-lg bg-slate-100" aria-hidden="true" />
+          ) : isAuthenticated ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-100"
+            >
+              <span
+                className="grid size-7 place-items-center rounded-full bg-brand-900 text-[11px] font-semibold text-white"
+                aria-hidden="true"
+              >
+                {getInitials(user?.name, user?.email)}
+              </span>
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+              >
+                Sign in
+              </Link>
+              <ButtonLink to="/register" className="px-3.5 py-2">
+                Create account
+              </ButtonLink>
+            </>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
@@ -81,14 +116,31 @@ export function SiteHeader() {
                 to={item.to}
                 end={item.end}
                 onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  `block ${navLinkClasses(isActive)}`
-                }
+                className={({ isActive }) => `block ${navLinkClasses(isActive)}`}
               >
                 {item.label}
               </NavLink>
             ))}
           </nav>
+
+          <div className="mx-auto max-w-6xl space-y-2 border-t border-slate-100 px-4 py-4 sm:px-6">
+            {status === 'loading' ? (
+              <p className="text-sm text-slate-500">Checking your session…</p>
+            ) : isAuthenticated ? (
+              <ButtonLink to="/dashboard" className="w-full">
+                Open dashboard
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink to="/login" variant="secondary" className="w-full">
+                  Sign in
+                </ButtonLink>
+                <ButtonLink to="/register" className="w-full">
+                  Create account
+                </ButtonLink>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
     </header>

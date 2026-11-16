@@ -6,8 +6,10 @@ import {
   ShieldCheck,
   Target,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ButtonLink } from '../../components/common/ButtonLink'
 import { StatusBadge } from '../../components/common/StatusBadge'
+import { useAuth } from '../../hooks/use-auth'
 import { usePageTitle } from '../../hooks/use-page-title'
 
 const signals = [
@@ -70,13 +72,14 @@ const steps = [
 
 export function LandingPage() {
   usePageTitle()
+  const { isAuthenticated } = useAuth()
 
   return (
     <>
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:px-8 lg:py-24">
           <div>
-            <StatusBadge tone="info">Phase 1 foundation preview</StatusBadge>
+            <StatusBadge tone="info">Phase 2 · Accounts and dashboard</StatusBadge>
 
             <h1 className="mt-5 max-w-3xl text-4xl leading-tight font-semibold tracking-tight text-slate-950 text-balance sm:text-5xl lg:text-6xl">
               See how your CV matches the job — with evidence, not guesswork.
@@ -89,8 +92,8 @@ export function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <ButtonLink to="/diagnostics">
-                Run the system check
+              <ButtonLink to={isAuthenticated ? '/dashboard' : '/register'}>
+                {isAuthenticated ? 'Open your dashboard' : 'Create your account'}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </ButtonLink>
               <a
@@ -100,6 +103,18 @@ export function LandingPage() {
                 See the planned signals
               </a>
             </div>
+
+            {!isAuthenticated ? (
+              <p className="mt-4 text-sm text-slate-600">
+                Already have an account?{' '}
+                <Link
+                  to="/login"
+                  className="font-semibold text-brand-700 underline-offset-2 hover:underline"
+                >
+                  Sign in
+                </Link>
+              </p>
+            ) : null}
 
             <p className="mt-6 flex max-w-xl items-start gap-2 text-sm leading-6 text-slate-500">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
@@ -193,9 +208,8 @@ export function LandingPage() {
                 From a job description to an explainable result
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                The analysis workflow is being built in later phases. This foundation establishes
-                the app shell, configuration, and Appwrite client without inventing sample
-                results.
+                Accounts and session restoration are available now. The CV and analysis workflow
+                is being built in later phases; this foundation does not invent sample results.
               </p>
             </div>
 
@@ -251,26 +265,29 @@ export function LandingPage() {
           <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-950">
-                Foundation status
+                Phase status
               </h2>
               <ul className="mt-4 space-y-3">
                 <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                   <StatusBadge tone="success">Available now</StatusBadge>
-                  <span>Responsive shell, Tailwind, typed configuration, Appwrite client</span>
+                  <span>Registration, sign-in, session restoration, protected dashboard</span>
                 </li>
                 <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                   <StatusBadge tone="info">Next phase</StatusBadge>
-                  <span>Authentication, session restoration, protected dashboard</span>
+                  <span>Private CV storage, job records, and ownership permissions</span>
                 </li>
                 <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                   <StatusBadge tone="neutral">Planned</StatusBadge>
-                  <span>CV upload, AI-assisted analysis, reports, and job comparison</span>
+                  <span>AI-assisted analysis, reports, and job comparison</span>
                 </li>
               </ul>
             </div>
 
-            <ButtonLink to="/diagnostics" variant="secondary">
-              Check Appwrite configuration
+            <ButtonLink
+              to={isAuthenticated ? '/dashboard' : '/register'}
+              variant="secondary"
+            >
+              {isAuthenticated ? 'Open dashboard' : 'Create an account'}
               <ArrowRight className="size-4" aria-hidden="true" />
             </ButtonLink>
           </div>
