@@ -7,9 +7,11 @@ import {
   LockKeyhole,
   LogOut,
   ServerCog,
+  UserRound,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/use-auth'
+import { useProfile } from '../../hooks/use-profile'
 import { getInitials } from '../../utils/user'
 import { Button } from '../common/Button'
 import { StatusBadge } from '../common/StatusBadge'
@@ -17,12 +19,13 @@ import { Brand } from '../layout/Brand'
 
 const primaryNavigation = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/resumes', label: 'CV library', icon: FileText, end: false },
+  { to: '/jobs', label: 'Job opportunities', icon: BriefcaseBusiness, end: false },
+  { to: '/settings', label: 'Profile & settings', icon: UserRound, end: false },
   { to: '/diagnostics', label: 'System check', icon: ServerCog, end: false },
 ] as const
 
 const plannedNavigation = [
-  { label: 'CV library', icon: FileText },
-  { label: 'Job opportunities', icon: BriefcaseBusiness },
   { label: 'Analysis results', icon: BarChart3 },
   { label: 'Reports', icon: FileSearch },
 ] as const
@@ -41,7 +44,9 @@ export function DashboardSidebar({
   logoutError,
 }: DashboardSidebarProps) {
   const { user, isLoggingOut } = useAuth()
-  const displayName = user?.name.trim() || user?.email || 'Your account'
+  const { profile } = useProfile()
+  const displayName =
+    profile?.displayName || user?.name.trim() || user?.email || 'Your account'
 
   return (
     <div className="flex h-full flex-col bg-white">
@@ -92,7 +97,7 @@ export function DashboardSidebar({
             ))}
           </ul>
           <p className="mt-3 text-xs leading-5 text-slate-500">
-            These tools appear when the data and analysis phases are implemented.
+            Analysis and report tools appear after the trusted extraction and matching phases.
           </p>
         </div>
       </nav>
@@ -104,7 +109,7 @@ export function DashboardSidebar({
               className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-900 text-sm font-semibold text-white"
               aria-hidden="true"
             >
-              {getInitials(user?.name, user?.email)}
+              {getInitials(displayName, user?.email)}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>

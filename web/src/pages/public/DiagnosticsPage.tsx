@@ -12,6 +12,18 @@ export function DiagnosticsPage() {
 
   const hasConfigurationErrors = environment.issues.some((issue) => issue.severity === 'error')
 
+  const bannerTitle = !environment.isConfigured
+    ? 'Authentication configuration is incomplete'
+    : !environment.isDataConfigured
+      ? 'Authentication is configured; Phase 3 data setup is incomplete'
+      : 'Required configuration detected'
+
+  const bannerMessage = !environment.isConfigured
+    ? 'Follow the setup guide below, then restart the dev server. The public connection check stays disabled until the endpoint and project ID are valid.'
+    : !environment.isDataConfigured
+      ? 'The endpoint and project ID are present, so the public connection check can run. Add the database and private resumes bucket IDs after creating the Phase 3 resources in Appwrite.'
+      : 'The endpoint, project ID, database ID, and resumes bucket ID are present and structurally valid. A connection check runs automatically when this page loads.'
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <PageHeader
@@ -34,16 +46,8 @@ export function DiagnosticsPage() {
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-hidden="true" />
         )}
         <div>
-          <p className="text-sm font-medium text-slate-900">
-            {hasConfigurationErrors
-              ? 'Required configuration is incomplete'
-              : 'Required configuration detected'}
-          </p>
-          <p className="mt-1 text-sm leading-6 text-slate-700">
-            {hasConfigurationErrors
-              ? 'Follow the setup guide below, then restart the dev server. The connection check stays disabled until both required values are valid.'
-              : 'The endpoint and project ID are present and structurally valid. A connection check runs automatically when this page loads.'}
-          </p>
+          <p className="text-sm font-medium text-slate-900">{bannerTitle}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-700">{bannerMessage}</p>
         </div>
       </div>
 

@@ -41,7 +41,7 @@ export function SiteFooter() {
           <p>
             © {copyrightYear} {APP_NAME}
           </p>
-          <p>Phase 2 · Authentication and dashboard enabled · CV analysis is not yet available.</p>
+          <p>Phase 3 · Accounts, private CVs, and jobs enabled · CV analysis is not yet available.</p>
         </div>
       </div>
     </footer>

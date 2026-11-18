@@ -25,7 +25,8 @@ export function SetupGuide() {
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             The app can render without configuration, but the connection check needs a valid
-            endpoint and project ID.
+            endpoint and project ID. CV and job pages also need a database and private resumes
+            bucket.
           </p>
         </div>
       </div>
@@ -62,7 +63,7 @@ export function SetupGuide() {
             2
           </span>
           <div className="min-w-0 text-sm leading-6 text-slate-600">
-            <p>From the repository root, create your local environment file:</p>
+            <p>From the repository root, open the web app and create your local environment file:</p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
               <code>{'cd web\ncp .env.example .env.local'}</code>
             </pre>
@@ -74,15 +75,20 @@ export function SetupGuide() {
             3
           </span>
           <div className="min-w-0 text-sm leading-6 text-slate-600">
-            <p>Set the endpoint and project ID from Appwrite Console → Settings:</p>
+            <p>
+              Set the endpoint and project ID from Appwrite Console → Settings, then add the Phase
+              3 database and private resumes bucket IDs after creating them with the repository
+              setup guide:
+            </p>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
               <code>
-                {`VITE_APPWRITE_ENDPOINT=${APPWRITE_ENDPOINT_EXAMPLE}\nVITE_APPWRITE_PROJECT_ID=<APPWRITE_PROJECT_ID>`}
+                {`VITE_APPWRITE_ENDPOINT=${APPWRITE_ENDPOINT_EXAMPLE}\nVITE_APPWRITE_PROJECT_ID=<APPWRITE_PROJECT_ID>\nVITE_APPWRITE_DATABASE_ID=<DATABASE_ID>\nVITE_APPWRITE_RESUMES_BUCKET_ID=<RESUMES_BUCKET_ID>`}
               </code>
             </pre>
             <p className="mt-2 text-xs text-slate-500">
-              Resource IDs for the database, buckets, and function can stay unset until those
-              phases begin.
+              Reports bucket and analysis Function IDs can stay unset until those phases begin.
+              Follow <code>docs/appwrite-setup.md</code> and <code>docs/data-model.md</code> for the
+              required tables, indexes, row permissions, and bucket settings.
             </p>
           </div>
         </li>

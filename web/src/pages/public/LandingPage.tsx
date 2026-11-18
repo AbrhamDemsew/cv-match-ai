@@ -79,7 +79,7 @@ export function LandingPage() {
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:px-8 lg:py-24">
           <div>
-            <StatusBadge tone="info">Phase 2 · Accounts and dashboard</StatusBadge>
+            <StatusBadge tone="info">Phase 3 · Accounts, private CVs, and jobs</StatusBadge>
 
             <h1 className="mt-5 max-w-3xl text-4xl leading-tight font-semibold tracking-tight text-slate-950 text-balance sm:text-5xl lg:text-6xl">
               See how your CV matches the job — with evidence, not guesswork.
@@ -208,8 +208,9 @@ export function LandingPage() {
                 From a job description to an explainable result
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-600">
-                Accounts and session restoration are available now. The CV and analysis workflow
-                is being built in later phases; this foundation does not invent sample results.
+                Accounts, private CV storage, and job records are available now. PDF extraction,
+                AI analysis, and reports are being built in later phases; this foundation does not
+                invent sample results.
               </p>
             </div>
 
@@ -273,12 +274,16 @@ export function LandingPage() {
                   <span>Registration, sign-in, session restoration, protected dashboard</span>
                 </li>
                 <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+                  <StatusBadge tone="success">Available now</StatusBadge>
+                  <span>Private CV library, job records, and requirement ownership</span>
+                </li>
+                <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                   <StatusBadge tone="info">Next phase</StatusBadge>
-                  <span>Private CV storage, job records, and ownership permissions</span>
+                  <span>PDF text extraction and page validation</span>
                 </li>
                 <li className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
                   <StatusBadge tone="neutral">Planned</StatusBadge>
-                  <span>AI-assisted analysis, reports, and job comparison</span>
+                  <span>AI analysis, evidence-based scores, recommendations, and reports</span>
                 </li>
               </ul>
             </div>

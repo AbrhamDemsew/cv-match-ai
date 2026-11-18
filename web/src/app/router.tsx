@@ -35,6 +35,41 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 )
+const ResumesPage = lazy(() =>
+  import('../pages/resumes/ResumesPage').then((module) => ({
+    default: module.ResumesPage,
+  })),
+)
+const UploadResumePage = lazy(() =>
+  import('../pages/resumes/UploadResumePage').then((module) => ({
+    default: module.UploadResumePage,
+  })),
+)
+const JobsPage = lazy(() =>
+  import('../pages/jobs/JobsPage').then((module) => ({
+    default: module.JobsPage,
+  })),
+)
+const NewJobPage = lazy(() =>
+  import('../pages/jobs/NewJobPage').then((module) => ({
+    default: module.NewJobPage,
+  })),
+)
+const JobDetailPage = lazy(() =>
+  import('../pages/jobs/JobDetailPage').then((module) => ({
+    default: module.JobDetailPage,
+  })),
+)
+const EditJobPage = lazy(() =>
+  import('../pages/jobs/EditJobPage').then((module) => ({
+    default: module.EditJobPage,
+  })),
+)
+const SettingsPage = lazy(() =>
+  import('../pages/settings/SettingsPage').then((module) => ({
+    default: module.SettingsPage,
+  })),
+)
 
 export function AppRouter() {
   return (
@@ -59,6 +94,13 @@ export function AppRouter() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="resumes" element={<ResumesPage />} />
+            <Route path="resumes/new" element={<UploadResumePage />} />
+            <Route path="jobs" element={<JobsPage />} />
+            <Route path="jobs/new" element={<NewJobPage />} />
+            <Route path="jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="jobs/:jobId/edit" element={<EditJobPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
 

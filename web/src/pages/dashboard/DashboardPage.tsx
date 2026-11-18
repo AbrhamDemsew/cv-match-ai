@@ -1,35 +1,42 @@
 import {
   ArrowRight,
   BriefcaseBusiness,
+  FileSearch,
   FileText,
   LockKeyhole,
+  Plus,
   ShieldCheck,
   Sparkles,
+  UploadCloud,
+  UserRound,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ButtonLink } from '../../components/common/ButtonLink'
 import { PageHeader } from '../../components/common/PageHeader'
 import { StatusBadge } from '../../components/common/StatusBadge'
+import { DataConfigurationNotice } from '../../components/data/DataConfigurationNotice'
+import { FormAlert } from '../../components/forms/FormAlert'
 import { useAuth } from '../../hooks/use-auth'
+import { useJobs } from '../../hooks/use-jobs'
 import { usePageTitle } from '../../hooks/use-page-title'
+import { useProfile } from '../../hooks/use-profile'
+import { useResumes } from '../../hooks/use-resumes'
+import { DATA_LIST_LIMIT } from '../../lib/data-constants'
+import { environment } from '../../lib/env'
+import { getInitials } from '../../utils/user'
 
 const upcomingPhases = [
   {
-    title: 'CV and job records',
-    description: 'Upload private CVs and save job descriptions with ownership permissions.',
-    badge: 'Next phase',
-    tone: 'info' as const,
+    title: 'PDF extraction and requirement matching',
+    description:
+      'Extract evidence from a CV and compare it with each saved requirement in a trusted Appwrite Function.',
+    badge: 'Planned',
   },
   {
-    title: 'PDF extraction and AI analysis',
-    description: 'Extract evidence and compare it with each job requirement in a trusted Function.',
+    title: 'Explainable results and reports',
+    description:
+      'Review scores based on evidence, gaps, recommendations, and downloadable PDF reports.',
     badge: 'Planned',
-    tone: 'neutral' as const,
-  },
-  {
-    title: 'Results and reports',
-    description: 'Review explainable scores, recommendations, and downloadable PDF reports.',
-    badge: 'Planned',
-    tone: 'neutral' as const,
   },
 ] as const
 
@@ -37,144 +44,281 @@ export function DashboardPage() {
   usePageTitle('Dashboard')
 
   const { user } = useAuth()
-  const firstName =
-    user?.name.trim().split(/\s+/)[0] || user?.email.split('@')[0] || 'there'
+  const {
+    profile,
+    isLoading: profileLoading,
+    isError: profileError,
+    errorMessage: profileErrorMessage,
+  } = useProfile()
+  const {
+    resumes,
+    isLoading: resumesLoading,
+    isError: resumesError,
+    errorMessage: resumesErrorMessage,
+  } = useResumes()
+  const {
+    jobs,
+    isLoading: jobsLoading,
+    isError: jobsError,
+    errorMessage: jobsErrorMessage,
+  } = useJobs()
+
+  const displayName = profile?.displayName || user?.name.trim() || user?.email || 'there'
+  const firstName = displayName.split(/\s+/)[0] || 'there'
+  const resumeCount = !environment.isDataConfigured
+    ? '—'
+    : resumesLoading
+      ? '…'
+      : resumesError
+        ? '—'
+        : resumes.length >= DATA_LIST_LIMIT
+          ? `${DATA_LIST_LIMIT}+`
+          : String(resumes.length)
+  const jobCount = !environment.isDataConfigured
+    ? '—'
+    : jobsLoading
+      ? '…'
+      : jobsError
+        ? '—'
+        : jobs.length >= DATA_LIST_LIMIT
+          ? `${DATA_LIST_LIMIT}+`
+          : String(jobs.length)
+  const workspaceError = profileError
+    ? profileErrorMessage
+    : resumesError
+      ? resumesErrorMessage
+      : jobsError
+        ? jobsErrorMessage
+        : null
+  const profileStatus = !environment.isDataConfigured
+    ? 'Not configured'
+    : profileError
+      ? 'Unavailable'
+      : profileLoading
+        ? 'Loading…'
+        : profile
+          ? 'Saved'
+          : 'Not created'
 
   return (
     <div>
       <PageHeader
         eyebrow="Dashboard"
         title={`Welcome back, ${firstName}.`}
-        description="Your account and session are ready. CV uploads, job records, and AI-assisted analysis arrive in the next phases."
+        description="Your private CV library and saved job opportunities are ready. Analysis and reports remain intentionally unavailable until their phases are implemented."
         actions={
-          <ButtonLink to="/diagnostics" variant="secondary">
-            Run system check
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </ButtonLink>
+          <>
+            <ButtonLink to="/resumes/new">
+              <UploadCloud className="size-4" aria-hidden="true" />
+              Upload CV
+            </ButtonLink>
+            <ButtonLink to="/jobs/new" variant="secondary">
+              <Plus className="size-4" aria-hidden="true" />
+              Add job
+            </ButtonLink>
+          </>
         }
       />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <section
-          aria-labelledby="account-heading"
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              id="account-heading"
-              className="text-lg font-semibold tracking-tight text-slate-950"
+      <div className="mt-8 space-y-6">
+        {!environment.isDataConfigured ? <DataConfigurationNotice /> : null}
+
+        {environment.isDataConfigured && workspaceError ? (
+          <FormAlert tone="error" title="Some workspace data could not be loaded">
+            {workspaceError} Open the relevant workspace page or the system check for more detail.
+          </FormAlert>
+        ) : null}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+          <div className="space-y-6">
+            <section
+              aria-labelledby="workspace-heading"
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
             >
-              Your account
-            </h2>
-            <StatusBadge tone="success">Signed in</StatusBadge>
+              <h2
+                id="workspace-heading"
+                className="text-lg font-semibold tracking-tight text-slate-950"
+              >
+                Workspace
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Counts come from your persisted Appwrite records. No scores or results are
+                fabricated.
+              </p>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <Link
+                  to="/resumes"
+                  className="group rounded-xl border border-slate-200 bg-slate-50 p-5 transition-colors hover:border-brand-300 hover:bg-brand-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="grid size-10 place-items-center rounded-xl bg-white text-brand-700 ring-1 ring-slate-200">
+                      <FileText className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-950">
+                      {resumeCount}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-slate-900">Private CVs</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    Open CV library
+                    <ArrowRight
+                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </p>
+                </Link>
+
+                <Link
+                  to="/jobs"
+                  className="group rounded-xl border border-slate-200 bg-slate-50 p-5 transition-colors hover:border-brand-300 hover:bg-brand-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="grid size-10 place-items-center rounded-xl bg-white text-brand-700 ring-1 ring-slate-200">
+                      <BriefcaseBusiness className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="text-3xl font-semibold tracking-tight text-slate-950">
+                      {jobCount}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-slate-900">Saved jobs</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                    Open job opportunities
+                    <ArrowRight
+                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </p>
+                </Link>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 size-4.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Analysis is not available yet</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      The workspace will not display a compatibility score until the trusted
+                      extraction, matching, and report phases are implemented.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section
+              aria-labelledby="upcoming-heading"
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
+            >
+              <h2
+                id="upcoming-heading"
+                className="text-lg font-semibold tracking-tight text-slate-950"
+              >
+                What comes next
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Phase 3 stores data only. These capabilities are not presented as available.
+              </p>
+
+              <ul className="mt-5 grid gap-4 md:grid-cols-2">
+                {upcomingPhases.map((phase) => (
+                  <li key={phase.title} className="rounded-xl border border-slate-200 p-4">
+                    <StatusBadge tone="neutral">{phase.badge}</StatusBadge>
+                    <h3 className="mt-3 text-sm font-semibold text-slate-900">{phase.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{phase.description}</p>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-5 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-emerald-600" aria-hidden="true" />
+                <p className="max-w-3xl text-xs leading-5 text-slate-600">
+                  Route guards are not the security boundary. CVs, jobs, and requirements are
+                  protected by Appwrite table and file permissions, with owner metadata checked in
+                  the browser layer as defense in depth.
+                </p>
+              </div>
+            </section>
           </div>
 
-          <dl className="mt-5 divide-y divide-slate-100 border-t border-slate-100">
-            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <dt className="text-sm text-slate-500">Name</dt>
-              <dd className="text-sm font-medium text-slate-900">
-                {user?.name.trim() || 'Not provided'}
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <dt className="text-sm text-slate-500">Email</dt>
-              <dd className="text-sm font-medium break-all text-slate-900">{user?.email}</dd>
-            </div>
-            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <dt className="text-sm text-slate-500">Email status</dt>
-              <dd>
-                <StatusBadge tone={user?.emailVerification ? 'success' : 'warning'}>
-                  {user?.emailVerification ? 'Verified' : 'Not verified'}
-                </StatusBadge>
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <dt className="text-sm text-slate-500">Session</dt>
-              <dd className="text-sm font-medium text-slate-900">
-                Managed by Appwrite Auth
-              </dd>
-            </div>
-          </dl>
+          <aside className="space-y-6">
+            <section
+              aria-labelledby="account-heading"
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2
+                  id="account-heading"
+                  className="text-lg font-semibold tracking-tight text-slate-950"
+                >
+                  Your account
+                </h2>
+                <StatusBadge tone="success">Signed in</StatusBadge>
+              </div>
 
-          <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-            This profile is read directly from your Appwrite account. Persistent profile rows and
-            editable account settings belong to later phases.
-          </p>
-        </section>
+              <div className="mt-5 flex items-center gap-3">
+                <span
+                  className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-900 text-sm font-semibold text-white"
+                  aria-hidden="true"
+                >
+                  {getInitials(displayName, user?.email)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-950">{displayName}</p>
+                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
+                </div>
+              </div>
 
-        <section
-          aria-labelledby="workspace-heading"
-          className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
-        >
-          <h2
-            id="workspace-heading"
-            className="text-lg font-semibold tracking-tight text-slate-950"
-          >
-            Analysis workspace
-          </h2>
-          <div className="mt-5 flex flex-1 flex-col items-start justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5">
-            <span className="grid size-11 place-items-center rounded-xl bg-white text-brand-700 ring-1 ring-slate-200">
-              <Sparkles className="size-5" aria-hidden="true" />
-            </span>
-            <p className="mt-4 text-sm font-semibold text-slate-900">No workspace data yet</p>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Phase 2 intentionally does not create CVs, jobs, or analyses. This page will not
-              display fabricated counts or results.
-            </p>
-          </div>
-          <p className="mt-4 text-xs leading-5 text-slate-500">
-            The next data phase adds private CV storage, job records, and ownership permissions.
-          </p>
-        </section>
-      </div>
+              <dl className="mt-5 divide-y divide-slate-100 border-t border-slate-100">
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <dt className="text-sm text-slate-500">Email status</dt>
+                  <dd>
+                    <StatusBadge tone={user?.emailVerification ? 'success' : 'warning'}>
+                      {user?.emailVerification ? 'Verified' : 'Not verified'}
+                    </StatusBadge>
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <dt className="text-sm text-slate-500">Profile record</dt>
+                  <dd className="text-sm font-medium text-slate-900">{profileStatus}</dd>
+                </div>
+              </dl>
 
-      <section
-        aria-labelledby="upcoming-heading"
-        className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7"
-      >
-        <h2 id="upcoming-heading" className="text-lg font-semibold tracking-tight text-slate-950">
-          What comes next
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          The product is being delivered in reviewed phases. No feature below is presented as
-          available yet.
-        </p>
+              <Link
+                to="/settings"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+              >
+                <UserRound className="size-4" aria-hidden="true" />
+                Profile settings
+              </Link>
+            </section>
 
-        <ul className="mt-5 grid gap-4 md:grid-cols-3">
-          {upcomingPhases.map((phase) => (
-            <li key={phase.title} className="rounded-xl border border-slate-200 p-4">
-              <StatusBadge tone={phase.tone}>{phase.badge}</StatusBadge>
-              <h3 className="mt-3 text-sm font-semibold text-slate-900">{phase.title}</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">{phase.description}</p>
-            </li>
-          ))}
-        </ul>
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+                <LockKeyhole className="size-4 text-slate-500" aria-hidden="true" />
+                Privacy by default
+              </h2>
+              <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-600">
+                <li>CV files are stored in a private bucket.</li>
+                <li>Rows grant access only to the authenticated owner.</li>
+                <li>No public file URL is created or displayed.</li>
+                <li>No Gemini or AI processing happens in this phase.</li>
+              </ul>
+            </section>
 
-        <div className="mt-6 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <ShieldCheck className="mt-0.5 size-4.5 shrink-0 text-emerald-600" aria-hidden="true" />
-          <p className="max-w-3xl text-xs leading-5 text-slate-600">
-            Route guards only improve navigation. They are not the security boundary. Every CV,
-            job, analysis, and report must also be protected by Appwrite row/file permissions and
-            server-side ownership checks in the Functions that process them.
-          </p>
-        </div>
-      </section>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          <FileText className="size-4.5 shrink-0 text-slate-400" aria-hidden="true" />
-          CV library — planned for the data phase
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          <BriefcaseBusiness className="size-4.5 shrink-0 text-slate-400" aria-hidden="true" />
-          Job opportunities — planned for the data phase
+            <Link
+              to="/diagnostics"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+            >
+              <span className="flex items-center gap-2">
+                <FileSearch className="size-4 text-slate-500" aria-hidden="true" />
+                Run system check
+              </span>
+              <ArrowRight className="size-4 text-slate-400" aria-hidden="true" />
+            </Link>
+          </aside>
         </div>
       </div>
-
-      <p className="mt-6 flex items-center gap-2 text-xs text-slate-500">
-        <LockKeyhole className="size-3.5" aria-hidden="true" />
-        No passwords or session tokens are stored manually by this application.
-      </p>
     </div>
   )
 }

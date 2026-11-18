@@ -45,15 +45,15 @@ export function PublicConfigCard() {
       label: 'Database ID',
       variable: ENV_KEYS.databaseId,
       value: environment.databaseId,
-      requiredNow: false,
-      note: 'Used in the database phase.',
+      requiredNow: true,
+      note: 'Required for private profile, CV, and job records.',
     },
     {
       label: 'Resumes bucket ID',
       variable: ENV_KEYS.resumesBucketId,
       value: environment.resumesBucketId,
-      requiredNow: false,
-      note: 'Used in the file storage phase.',
+      requiredNow: true,
+      note: 'Required for private CV file uploads.',
     },
     {
       label: 'Reports bucket ID',
@@ -89,7 +89,7 @@ export function PublicConfigCard() {
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             These values come from Vite environment variables and are safe to expose. Required
-            values must be valid before a connection check can run.
+            values must be valid for authentication and Phase 3 data features.
           </p>
         </div>
       </div>

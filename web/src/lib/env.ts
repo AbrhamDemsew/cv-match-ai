@@ -30,8 +30,10 @@ export interface AppwriteEnvironment {
   resumesBucketId: string | null
   reportsBucketId: string | null
   analyzeFunctionId: string | null
-  /** True when both required Appwrite settings are present and valid. */
+  /** True when the endpoint and project ID needed by authentication are valid. */
   isConfigured: boolean
+  /** True when the database and private resumes bucket needed by Phase 3 are valid. */
+  isDataConfigured: boolean
   issues: EnvironmentIssue[]
 }
 
@@ -56,6 +58,10 @@ const optionalResourceIdSchema = z
   .string()
   .trim()
   .max(36, 'Appwrite resource IDs are at most 36 characters.')
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+    'Use a public Appwrite resource ID (letters, numbers, dots, hyphens, and underscores), not a placeholder or API key.',
+  )
 
 function isHttpUrl(value: string): boolean {
   try {
@@ -118,18 +124,30 @@ function readRequired(
   return result.data
 }
 
-function readOptional(
+function readResource(
   key: PublicEnvKey,
   value: string | undefined,
   issues: EnvironmentIssue[],
+  required: boolean,
 ): string | null {
   if (!value) {
+    if (required) {
+      issues.push({
+        variable: key,
+        message: 'Missing. Required for profile, CV, and job storage in Phase 3.',
+        severity: 'error',
+      })
+    }
     return null
   }
 
   const result = optionalResourceIdSchema.safeParse(value)
   if (!result.success) {
-    issues.push({ variable: key, message: firstIssueMessage(result.error), severity: 'warning' })
+    issues.push({
+      variable: key,
+      message: firstIssueMessage(result.error),
+      severity: required ? 'error' : 'warning',
+    })
     return null
   }
 
@@ -160,30 +178,41 @@ function buildEnvironment(): AppwriteEnvironment {
     })
   }
 
-  const environment: AppwriteEnvironment = {
+  const databaseId = readResource(
+    ENV_KEYS.databaseId,
+    readRaw(ENV_KEYS.databaseId),
+    issues,
+    true,
+  )
+  const resumesBucketId = readResource(
+    ENV_KEYS.resumesBucketId,
+    readRaw(ENV_KEYS.resumesBucketId),
+    issues,
+    true,
+  )
+
+  return {
     endpoint,
     projectId,
-    databaseId: readOptional(ENV_KEYS.databaseId, readRaw(ENV_KEYS.databaseId), issues),
-    resumesBucketId: readOptional(
-      ENV_KEYS.resumesBucketId,
-      readRaw(ENV_KEYS.resumesBucketId),
-      issues,
-    ),
-    reportsBucketId: readOptional(
+    databaseId,
+    resumesBucketId,
+    reportsBucketId: readResource(
       ENV_KEYS.reportsBucketId,
       readRaw(ENV_KEYS.reportsBucketId),
       issues,
+      false,
     ),
-    analyzeFunctionId: readOptional(
+    analyzeFunctionId: readResource(
       ENV_KEYS.analyzeFunctionId,
       readRaw(ENV_KEYS.analyzeFunctionId),
       issues,
+      false,
     ),
     isConfigured: endpoint !== null && projectId !== null,
+    isDataConfigured:
+      endpoint !== null && projectId !== null && databaseId !== null && resumesBucketId !== null,
     issues,
   }
-
-  return environment
 }
 
 /**

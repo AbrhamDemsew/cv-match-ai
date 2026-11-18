@@ -4,7 +4,9 @@ CVMatch AI helps a person understand how closely their CV matches a specific job
 
 **Product truth:** a compatibility score is a weighted measure of evidence in a CV. It is **not** the probability of getting hired, and it must never be presented as one.
 
-**Current status:** Phase 2 — authentication and the authenticated application shell are implemented. CV uploads, database records for jobs/resumes/analyses, Gemini analysis, reports, functions, and the desktop client remain intentionally unimplemented.
+**Current status:** Phase 3 is implemented in the web application: authenticated profiles, private PDF storage with CV metadata, and job/requirement records backed by Appwrite TablesDB. PDF extraction, page counting, Gemini analysis, matching, recommendations, reports, Appwrite Functions, and the desktop client remain intentionally unimplemented.
+
+> **Backend verification status:** this repository contains no Appwrite provisioning script, server credentials, or live test results. The required database, tables, indexes, permissions, and private bucket must be created manually in Appwrite Console by following [docs/appwrite-setup.md](docs/appwrite-setup.md). No live Appwrite schema or cross-user access test has been verified from this workspace.
 
 ## Implemented scope
 
@@ -27,19 +29,30 @@ Phase 2 authentication:
 - Password recovery request and password reset pages via Appwrite Account APIs.
 - Centralized `AuthProvider` and reusable `useAuth()` hook.
 - Protected routes with login redirects and intended-destination preservation.
-- Redirects for authenticated users away from login, registration, and recovery pages.
-- Responsive dashboard shell with account information and sign-out.
-- React Hook Form + Zod validation with safe, user-friendly Appwrite error messages.
-- Focused tests for auth error mapping, redirect safety, initials, and form schemas.
+- Responsive authenticated shell with account information and sign-out.
+- React Hook Form + Zod validation with safe, user-friendly error messages.
 
-Not implemented in Phase 2:
+Phase 3 data and private storage:
 
-- CV uploads or PDF processing.
-- Database tables for resumes, jobs, analyses, requirement matches, recommendations, or reports.
-- Persistent profile rows or editable account settings.
-- Gemini API integration, scoring, ATS evaluation, or recommendations.
-- Appwrite Functions.
-- PDF reports or report downloads.
+- Appwrite TablesDB services for `profiles`, `resumes`, `jobs`, and `job_requirements`.
+- A profile row keyed by the authenticated Appwrite user ID, created idempotently on first use and editable from `/settings`.
+- Private PDF upload to Appwrite Storage, plus metadata listing and deletion in `/resumes`.
+- Browser validation of file extension, MIME type, PDF signature, non-empty file, and the 10 MB limit.
+- Generated storage file IDs and private owner-only file permissions; the original filename is sanitized metadata only.
+- Job creation, editing, listing, detail review, and deletion with up to 45 requirements per job.
+- Atomic job/requirement writes through Appwrite TablesDB client transactions.
+- React Query query/mutation hooks with loading, empty, success, retry, and safe error states.
+- Responsive dashboard counts loaded from persisted records, with analysis explicitly marked unavailable.
+- Appwrite row/file permissions plus browser-side ownership checks as defense in depth.
+- Focused tests for permissions, ownership, file validation, sanitization, schemas, input mapping, formatting, and safe errors.
+
+Not implemented in Phase 3:
+
+- PDF text extraction, encryption detection, empty/image-only PDF content inspection, or page counting. The 20-page limit is documented for Phase 4 but is not enforced now.
+- Gemini API integration, ATS evaluation, scoring, requirement matching, recommendations, or analysis records.
+- Appwrite Functions, PDF reports, or report downloads.
+- Resume download/preview URLs, sharing, pagination, search, or realtime updates.
+- Account deletion, email changes, or syncing the editable profile display name back to Appwrite Auth.
 - Desktop application.
 
 ## Security and authorization
@@ -48,12 +61,18 @@ The frontend uses only public Appwrite configuration. It never contains an Appwr
 
 Authentication state relies on the Appwrite Web SDK's session handling. This project does not manually store passwords, API keys, or session tokens in `localStorage`.
 
-Route guards improve the user experience, but they are **not** the security boundary. In later phases, every CV, job, analysis, and report must also be protected by:
+Route guards improve the user experience, but they are **not** the security boundary. Phase 3 enforces access through:
 
-- Appwrite row/file permissions scoped to the signed-in user.
-- Ownership checks inside Appwrite Functions.
-- Private Storage buckets with no public read access.
-- Server-side identity verification based on the authenticated Appwrite context, never a browser-supplied user ID.
+- Table-level `create` access for authenticated users only.
+- Row Security enabled on every active table.
+- Per-row `read`, `update`, and `delete` permissions for the owner's Appwrite user ID.
+- A bucket-level `create` permission only, with no bucket-level read/update/delete.
+- File Security enabled with per-file owner-only permissions.
+- A private bucket with a 10 MB limit and `pdf` as the only allowed extension.
+- Rejection of public file URLs by design; the web app never requests a file view/download URL.
+- A browser ownership check on returned metadata as an additional guard.
+
+Appwrite remains the authorization boundary. A modified browser client can bypass frontend validation and ownership checks, but it cannot use row/file permissions to read or modify another user's existing records. Phase 4 server-side work must still validate all untrusted inputs and ownership with Appwrite Functions. See [docs/data-model.md](docs/data-model.md) for the threat model, residual risks, and manual security tests.
 
 ## Repository layout
 
@@ -65,46 +84,25 @@ Route guards improve the user experience, but they are **not** the security boun
 ├── .gitignore
 ├── docs/
 │   ├── appwrite-setup.md
-│   └── architecture.md
+│   ├── architecture.md
+│   └── data-model.md
 └── web/
     ├── .env.example
     ├── index.html
     ├── package.json
-    ├── tsconfig.app.json
     ├── tsconfig.json
-    ├── tsconfig.node.json
     ├── vite.config.ts
     ├── public/
-    │   └── favicon.svg
     └── src/
-        ├── app/
-        │   ├── auth-context.ts
-        │   ├── auth-provider.tsx
-        │   ├── providers.tsx
-        │   └── router.tsx
-        ├── components/
-        │   ├── auth/
-        │   ├── common/
-        │   ├── dashboard/
-        │   ├── diagnostics/
-        │   ├── forms/
-        │   ├── layout/
-        │   └── routing/
-        ├── hooks/
-        ├── lib/
-        │   ├── validation/
-        │   └── ...
-        ├── pages/
-        │   ├── auth/
-        │   ├── dashboard/
-        │   └── public/
-        ├── services/
-        ├── styles/
-        ├── types/
-        ├── utils/
-        ├── App.tsx
-        ├── main.tsx
-        └── vite-env.d.ts
+        ├── app/          Providers, auth context, routes
+        ├── components/   Auth, common, data, dashboard, forms, jobs, layout
+        ├── hooks/        Auth, profile, resumes, jobs, diagnostics
+        ├── lib/          Appwrite/env config, validation, errors, query keys
+        ├── pages/        Public, auth, dashboard, resumes, jobs, settings
+        ├── services/     Appwrite Auth, TablesDB, Storage, health checks
+        ├── styles/       Tailwind theme and global styles
+        ├── types/        Narrow domain and SDK-facing types
+        └── utils/        Formatting, redirects, initials
 ```
 
 The `appwrite/`, `packages/`, `desktop/`, and `scripts/` directories will be added only when their phases begin. Empty placeholder files are intentionally avoided.
@@ -118,16 +116,24 @@ The `appwrite/`, `packages/`, `desktop/`, and `scripts/` directories will be add
 | `/register` | Guests only | Create an Appwrite account. |
 | `/forgot-password` | Guests only | Request a password recovery email. |
 | `/reset-password` | Public link | Complete a password reset using the email token. |
-| `/dashboard` | Protected | Authenticated account and workspace placeholder. |
-| `/diagnostics` | Public | Validate public Appwrite configuration and connectivity. |
+| `/dashboard` | Protected | Persisted CV/job counts, profile link, and account summary. |
+| `/resumes` | Protected | Private CV library with metadata and deletion. |
+| `/resumes/new` | Protected | Validate and upload a PDF. |
+| `/jobs` | Protected | List saved jobs. |
+| `/jobs/new` | Protected | Create a job and its requirements. |
+| `/jobs/:jobId` | Protected | View a saved job and requirements. |
+| `/jobs/:jobId/edit` | Protected | Edit a job and synchronize requirements. |
+| `/settings` | Protected | View account details and edit the persisted profile display name. |
+| `/diagnostics` | Public | Validate public configuration and connectivity. |
 | `/privacy`, `/terms` | Not yet built | Required before public launch. |
 
 ## Prerequisites (Ubuntu)
 
-- **Node.js 20.19+ or 22.12+** (Node.js 24 LTS recommended). Check with `node --version`.
+- **Node.js 22.18 LTS or Node.js 24 or newer** (Node.js 24 LTS recommended). The tests run TypeScript directly through Node's built-in type stripping, which requires Node 22.18 or newer. Check with `node --version`.
 - **npm 10+** (bundled with Node.js). Check with `npm --version`.
 - **Git**. Check with `git --version`.
-- An **Appwrite Cloud** account and project.
+- An **Appwrite Cloud** account and project with email/password auth enabled.
+- Appwrite TablesDB tables and a private Storage bucket created from the setup guide.
 - Python 3.12+ and a Google AI Studio key are only needed in later phases.
 
 If Node.js is not installed, install it with [nvm](https://github.com/nvm-sh/nvm) or your preferred version manager:
@@ -141,28 +147,34 @@ nvm use 24
 
 ## Local setup
 
+1. Create the Appwrite database, tables, indexes, permissions, and private `resumes` bucket by following [docs/appwrite-setup.md](docs/appwrite-setup.md). Wait for every index to finish building.
+2. Install and configure the web app:
+
 ```bash
 git clone <YOUR_REPOSITORY_URL>
-cd <YOUR_REPOSITORY_DIRECTORY>
-cd web
+cd <YOUR_REPOSITORY_DIRECTORY>/web
 npm install
 cp .env.example .env.local
 ```
 
-Edit `web/.env.local` and set at least:
+3. Edit `web/.env.local` with the public Appwrite identifiers:
 
 ```env
 VITE_APPWRITE_ENDPOINT=https://<REGION>.cloud.appwrite.io/v1
 VITE_APPWRITE_PROJECT_ID=<APPWRITE_PROJECT_ID>
+VITE_APPWRITE_DATABASE_ID=<DATABASE_ID>
+VITE_APPWRITE_RESUMES_BUCKET_ID=<RESUMES_BUCKET_ID>
 ```
 
-Start the development server:
+The reports bucket and analysis Function IDs may remain unset until those phases. Do not add an Appwrite server API key or Gemini key.
+
+4. Start the app:
 
 ```bash
 npm run dev
 ```
 
-Open <http://localhost:5173>. The landing page is at `/`; register or sign in to open `/dashboard`; the configuration diagnostic is at `/diagnostics`.
+Open <http://localhost:5173>. Register or sign in, then open `/dashboard`. The public configuration check is at `/diagnostics`.
 
 > Vite reads environment files when the dev server starts. Restart `npm run dev` after editing `.env.local` or `.env`.
 
@@ -170,15 +182,13 @@ Open <http://localhost:5173>. The landing page is at `/`; register or sign in to
 
 In Appwrite Console:
 
-1. Open the project's **Auth** settings and ensure **Email/Password** authentication is enabled.
+1. Open the project's **Auth → Providers** settings and ensure **Email/Password** authentication is enabled.
 2. Add a **Web platform** for `localhost` (and `127.0.0.1` if you use it). Enter the hostname only, without a port.
-3. For password recovery, configure email delivery for the project. Link-based recovery sends an email and returns the user to `/reset-password` with `userId` and `secret` query parameters.
+3. For password recovery, configure email delivery. Link-based recovery sends an email and returns the user to `/reset-password` with `userId` and `secret` query parameters.
 4. Ensure the recovery redirect host is allowed by an Appwrite platform. Appwrite rejects redirect URLs whose host is not registered.
 5. For production, add the Appwrite Sites domain and any custom domain as Web platforms.
 
 Appwrite Cloud manages sessions through the Web SDK. Do not add a custom token store.
-
-Follow [docs/appwrite-setup.md](docs/appwrite-setup.md) for detailed Console steps and troubleshooting.
 
 ## Environment variables
 
@@ -188,10 +198,12 @@ All frontend variables are public because Vite embeds them in the browser bundle
 | --- | --- | --- |
 | `VITE_APPWRITE_ENDPOINT` | Yes | Appwrite Cloud API endpoint, including `/v1`. |
 | `VITE_APPWRITE_PROJECT_ID` | Yes | Public Appwrite project ID. |
-| `VITE_APPWRITE_DATABASE_ID` | Later phase | Database ID used from the data phase onward. |
-| `VITE_APPWRITE_RESUMES_BUCKET_ID` | Later phase | Private resumes bucket used in the storage phase. |
-| `VITE_APPWRITE_REPORTS_BUCKET_ID` | Later phase | Private reports bucket used in the reporting phase. |
-| `VITE_APPWRITE_ANALYZE_FUNCTION_ID` | Later phase | Analysis Function used in the analysis phase. |
+| `VITE_APPWRITE_DATABASE_ID` | Yes for Phase 3 | Database containing the four active tables. |
+| `VITE_APPWRITE_RESUMES_BUCKET_ID` | Yes for Phase 3 | Private bucket for PDF files. |
+| `VITE_APPWRITE_REPORTS_BUCKET_ID` | Later phase | Private reports bucket used by reporting. |
+| `VITE_APPWRITE_ANALYZE_FUNCTION_ID` | Later phase | Analysis Function used by the analysis pipeline. |
+
+Missing Phase 3 IDs do not break public pages or authentication; CV, job, profile, and dashboard data areas show a configuration notice instead.
 
 ### Secret rules
 
@@ -200,21 +212,33 @@ All frontend variables are public because Vite embeds them in the browser bundle
 - The Gemini key belongs only in the Appwrite Function's server-side environment.
 - A secret that has been exposed in a frontend bundle must be rotated. Removing it from source is not enough.
 
-## Manual authentication test checklist
+## Manual verification
 
-Use a dedicated test account, not a real user's data.
+Use dedicated test accounts, never real user data.
 
-1. **Registration:** open `/register`, enter a name, valid email, a password of at least 8 characters, and the same password in **Confirm password**. Use the eye buttons to check either password. Confirm you land on `/dashboard` and the sidebar shows the account name and email.
-2. **Refresh persistence:** refresh `/dashboard`. A loading state should appear briefly, then the dashboard should remain visible without signing in again.
-3. **Logout:** click **Sign out** in the sidebar. Confirm you are returned to `/login` with a signed-out message and `/dashboard` is no longer accessible.
-4. **Login:** sign in with the test account. Confirm the dashboard opens.
-5. **Protected route redirect:** open a private/incognito window and visit `/dashboard`. You should be redirected to `/login`; after signing in, you should be returned to `/dashboard`.
-6. **Guest-only redirect:** while signed in, visit `/login` or `/register`. You should be redirected to `/dashboard`.
-7. **Client validation:** submit empty or invalid login/registration forms. Confirm inline messages appear and no request is sent for invalid input.
-8. **Invalid credentials:** try a wrong password. Confirm a friendly message appears and no technical error details are shown.
-9. **Session expiry:** end the session in Appwrite Console or clear Appwrite cookies, then refresh `/dashboard`. You should be redirected to `/login` rather than seeing a broken page.
-10. **Password recovery:** open `/forgot-password`, request a recovery email, open the newest link, choose a new password, and sign in with it. Email delivery must be configured in Appwrite for this step.
-11. **Missing configuration:** temporarily point the app at missing environment values in a separate copy or use `/diagnostics`; auth forms should explain that configuration is required instead of failing silently.
+### Authentication
+
+1. Register a test account and confirm the dashboard opens.
+2. Refresh `/dashboard`; the existing session should restore.
+3. Sign out, then confirm protected routes redirect to `/login`.
+4. Sign in again and confirm the dashboard opens.
+5. Request and complete a password recovery email.
+6. Try invalid credentials and invalid forms; confirm only safe messages appear.
+
+### Phase 3 data and storage
+
+1. Open `/settings`; a profile row should be created with your account name. Change the display name, save, refresh, and confirm it persists.
+2. Upload a valid PDF under 10 MB at `/resumes/new`; confirm it appears in `/resumes` with filename, size, and "Awaiting extraction".
+3. Try `.txt`, a renamed non-PDF with a `.pdf` extension, and a file over 10 MB; confirm each is rejected before upload.
+4. Delete the CV and confirm the row disappears. In Appwrite Console, confirm the associated private file was removed.
+5. Create a job with a title, description, optional company/responsibilities, and at least two requirements.
+6. Edit the job, change an existing requirement, add a new one, remove another, and confirm the detail page matches after saving.
+7. Delete the job; in Appwrite Console, confirm its requirements were removed too.
+8. Sign in as a second test account and confirm it cannot see the first account's CVs, jobs, profile, or counts.
+9. Attempt to open the first account's `/jobs/<JOB_ID>` URL while signed in as the second account; confirm the app exposes no job data.
+10. Review [docs/data-model.md](docs/data-model.md) for direct SDK security tests that verify row and file permissions rather than UI filtering alone.
+
+These are manual procedures. They have not been executed against a live Appwrite project as part of this workspace state.
 
 ## Commands
 
@@ -225,7 +249,7 @@ Run these from `web/`:
 | `npm run dev` | Start the Vite development server. |
 | `npm run typecheck` | Run TypeScript project checks. |
 | `npm run lint` | Run Oxlint. |
-| `npm test` | Run focused auth utility and schema tests with Node's built-in test runner. |
+| `npm test` | Run focused auth and Phase 3 utility/schema tests with Node's built-in test runner. |
 | `npm run build` | Type-check and create the production build in `web/dist`. |
 | `npm run preview` | Serve the production build locally. |
 
@@ -237,7 +261,7 @@ npm run build
 npm run preview
 ```
 
-The production output is `web/dist`. When Phase 8 deploys through Appwrite Sites, connect the repository and configure:
+The production output is `web/dist`. When deployment begins in a later phase, connect the repository through Appwrite Sites and configure:
 
 - Root directory: `web`
 - Install command: `npm install`
@@ -250,20 +274,27 @@ If direct navigation to a client-side route such as `/dashboard` returns a 404 o
 
 ## Known limitations
 
-- **Persistent profile records are deferred.** The dashboard reads the authenticated Appwrite account directly. The `profiles` table, editable settings, and account deletion belong to later data/settings work.
+- **Live Appwrite resources are unverified.** The repository does not provision tables, indexes, permissions, or buckets, and no configured project was available for end-to-end verification. Follow the setup guide and manual tests before relying on the data layer.
+- **No browser or integration test suite.** Automated tests cover pure logic only: permissions, ownership, validation, schemas, mappings, formatting, and error sanitization.
+- **PDF page limits and extraction are deferred.** Phase 3 checks extension, MIME type, size, and a PDF signature. It does not detect encrypted/malformed/image-only PDFs or enforce the 20-page limit.
+- **No analysis or reports.** No Gemini call, scoring, matching, recommendation, analysis row, report file, or Appwrite Function exists yet.
+- **No resume download or preview.** CVs are private metadata records; public or signed file URLs are not exposed in the UI.
+- **List caps.** Lists show at most the newest 100 records, and a job supports at most 45 requirements so a full replacement remains below Appwrite Free's 100-operation transaction limit. Pagination is not implemented.
+- **No realtime updates.** Changes made in another tab appear after refetch or navigation.
+- **Upload cleanup is best-effort.** If metadata creation fails, the app attempts to delete the generated metadata row and the uploaded private file. If cleanup also fails, an unreferenced file or metadata row may remain until an administrator removes it.
+- **Client-created rows cannot be fully hardened without a trusted backend.** A malicious authenticated client can bypass UI validation and may create rows with misleading metadata or permissions for its own account. Appwrite row/file permissions prevent access to other users' existing records. Phase 4 must validate all untrusted data in an Appwrite Function. See the residual-risk notes in [docs/data-model.md](docs/data-model.md).
+- **Profile name is app-only.** Editing `display_name` does not change the Appwrite Auth account name.
 - Password recovery depends on Appwrite project email delivery and registered redirect hosts.
-- Session expiry is detected on refresh/window focus and through explicit auth calls. Later API modules should react to `401` responses by refreshing the auth state.
-- The dashboard is intentionally a placeholder. It does not show fabricated CV, job, or analysis counts.
-- Route guards are not sufficient authorization for later private data. Appwrite permissions and Function checks remain mandatory.
-- Auth pages and the dashboard are route-level code-split, keeping the public landing bundle smaller. The Appwrite SDK remains part of the shared authentication runtime and can be optimized further if needed.
-- Automated tests cover pure auth utilities and schemas. Full browser auth flows require a configured Appwrite project and a test account.
+- Session expiry is detected on refresh/window focus and through explicit auth calls. Resource errors show safe messages but do not automatically redirect on a `401`.
+- The reports bucket and analysis Function ID are reserved for later phases and are not required now.
 
 ## Documentation
 
-- [Architecture and decisions](docs/architecture.md)
+- [Architecture and phase decisions](docs/architecture.md)
 - [Appwrite Cloud setup](docs/appwrite-setup.md)
+- [Phase 3 data model, permissions, and security tests](docs/data-model.md)
 - [Full project instructions](instruction.md)
 
 ## Next phase
 
-Phase 3 adds the Appwrite database, profile rows, private CV/report Storage buckets, CV upload/list/delete, and job record creation/editing/listing/deletion with ownership permissions. Phase 2 should be reviewed before Phase 3 begins.
+Phase 4 adds the shared Python core, PDF text extraction and validation, Pydantic schemas, and packaging for the future Appwrite Function. Phase 3 should be reviewed against a configured Appwrite project before Phase 4 begins.
