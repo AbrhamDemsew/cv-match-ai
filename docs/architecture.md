@@ -4,11 +4,12 @@
 
 CVMatch AI is a web-first application backed by Appwrite Cloud. A Python Appwrite Function will later run the trusted analysis pipeline and Gemini calls. A shared Python package will keep scoring logic reusable by the future desktop client.
 
-Phases 1–3 are implemented in the web app:
+Phases 1–4 are implemented:
 
 1. Repository and public web foundation.
 2. Authentication, protected routing, and the authenticated shell.
 3. Persistent profiles, private PDF storage, and job/requirement records.
+4. Python core package (`cvmatch_core`) for PDF validation, extraction, normalization, and structured models.
 
 The code and pure-logic tests for these phases are implemented. Live Appwrite resources have not been provisioned or verified from this workspace; see [`data-model.md`](data-model.md) for the outstanding functional and security acceptance checks.
 
@@ -279,15 +280,14 @@ Appwrite client SDKs allow authenticated users to create rows/files with explici
 
 The following are intentionally not decided or implemented yet:
 
-- PDF text extraction, page counting, encryption/image-only detection, and server-side file validation.
-- Server-side ownership and input validation inside Appwrite Functions.
-- Analyses, requirement matching, scoring, recommendations, and report design.
-- Gemini model selection, prompt/schema versions, and scoring versions.
-- Reports bucket provisioning and report download flow.
+- Server-side ownership and input validation inside Appwrite Functions (Phase 5).
+- Analyses, requirement matching, scoring, recommendations, and report design (Phases 5-7).
+- Gemini model selection, prompt/schema versions, and scoring versions (Phase 5).
+- Reports bucket provisioning and report download flow (Phase 7).
 - Global automatic `401` redirect/refresh behavior for resource queries.
 - Pagination, search, realtime updates, account deletion, email change, and profile/auth-name synchronization.
-- Appwrite Sites production routing, custom domains, and deployment.
-- Desktop packaging.
+- Appwrite Sites production routing, custom domains, and deployment (Phase 8).
+- Desktop packaging (Phase 9).
 
 These decisions belong to the phases that implement them and should be documented when made.
 
@@ -342,3 +342,18 @@ These decisions belong to the phases that implement them and should be documente
 | Tests | Pure-logic tests for permissions, ownership, files, schemas, mappings, formatting, and errors. |
 | Documentation | README, setup guide, architecture, and data-model/security guide updated. |
 | Live verification | **Not performed** in this workspace; manual functional and security procedures are documented. |
+
+## Phase 4 acceptance mapping
+
+| Requirement | Implementation |
+| --- | --- |
+| Package structure | Isolated, clean `packages/python_core/` with `pyproject.toml` and Hatchling backend. |
+| Dependencies | Minimal footprint: `pymupdf>=1.24.0,<2.0.0` (pinned to stable 1.x without heavy ML dependencies) and `pydantic>=2.7.0`. |
+| PDF byte validation | Byte-level signature check, size limit (10 MB), page limit (20), encryption detection, and corrupt document rejection. |
+| PDF text extraction | Page-by-page PyMuPDF extraction, sequential page numbering, text availability detection, and safe resource cleanup. |
+| Text normalization | Deterministic line-ending unification, whitespace collapsing, excess blank line truncation, and full content preservation. |
+| Structured models | Pydantic v2 `ExtractionResult`, `PageResult`, and `ExtractionStatus` (`SUCCESS`, `NO_TEXT`, `FAILED`). |
+| Predictable errors | Safe exception hierarchy inheriting from `CVMatchCoreError` with no leaked filesystem paths or stack traces. |
+| Privacy and security | In-memory synthetic test fixtures only; no real CVs or PII; no permanent file writes or external calls. |
+| Automated testing | 56 pytest tests covering models, normalizer, validator, and extractor with >90% code coverage. |
+| Code quality | Ruff formatting and linting pass with zero errors. |

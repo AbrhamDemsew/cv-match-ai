@@ -4,7 +4,7 @@ CVMatch AI helps a person understand how closely their CV matches a specific job
 
 **Product truth:** a compatibility score is a weighted measure of evidence in a CV. It is **not** the probability of getting hired, and it must never be presented as one.
 
-**Current status:** Phase 3 is implemented in the web application: authenticated profiles, private PDF storage with CV metadata, and job/requirement records backed by Appwrite TablesDB. PDF extraction, page counting, Gemini analysis, matching, recommendations, reports, Appwrite Functions, and the desktop client remain intentionally unimplemented.
+**Current status:** Phase 4 is implemented: shared Python core (`packages/python_core/`), byte-level PDF validation, PyMuPDF text extraction, normalization, and structured Pydantic extraction models. Gemini analysis, matching, recommendations, reports, Appwrite Functions, and the desktop client remain intentionally unimplemented for future phases.
 
 > **Backend verification status:** this repository contains no Appwrite provisioning script, server credentials, or live test results. The required database, tables, indexes, permissions, and private bucket must be created manually in Appwrite Console by following [docs/appwrite-setup.md](docs/appwrite-setup.md). No live Appwrite schema or cross-user access test has been verified from this workspace.
 
@@ -46,14 +46,23 @@ Phase 3 data and private storage:
 - Appwrite row/file permissions plus browser-side ownership checks as defense in depth.
 - Focused tests for permissions, ownership, file validation, sanitization, schemas, input mapping, formatting, and safe errors.
 
-Not implemented in Phase 3:
+Phase 4 Python core and PDF extraction:
 
-- PDF text extraction, encryption detection, empty/image-only PDF content inspection, or page counting. The 20-page limit is documented for Phase 4 but is not enforced now.
-- Gemini API integration, ATS evaluation, scoring, requirement matching, recommendations, or analysis records.
-- Appwrite Functions, PDF reports, or report downloads.
-- Resume download/preview URLs, sharing, pagination, search, or realtime updates.
-- Account deletion, email changes, or syncing the editable profile display name back to Appwrite Auth.
-- Desktop application.
+- Reusable Python package `cvmatch_core` under `packages/python_core/`.
+- Byte-level validation enforcing PDF signature, 10 MB file size limit, 20-page limit, encryption detection, and corrupt document rejection.
+- Page-by-page text extraction with PyMuPDF preserving page numbers and reading structure.
+- Deterministic text normalizer handling line endings, consecutive whitespace, excess blank lines, and bullet/email/URL preservation.
+- Structured Pydantic v2 extraction models (`ExtractionResult`, `PageResult`, `ExtractionStatus`).
+- Safe exception hierarchy with no exposed file paths or stack traces.
+- Programmatic synthetic PDF fixtures (zero real personal information in tests).
+- 56 automated tests with >90% statement coverage.
+
+Not implemented in Phase 4:
+
+- Gemini API integration, ATS evaluation, scoring, requirement matching, recommendations, or analysis records (Phase 5+).
+- Appwrite Functions, PDF reports, or report downloads (Phase 5/7).
+- Desktop application (Phase 9).
+- OCR (scanned PDFs return `NO_TEXT` status; OCR is deferred per specifications).
 
 ## Security and authorization
 
@@ -242,7 +251,7 @@ These are manual procedures. They have not been executed against a live Appwrite
 
 ## Commands
 
-Run these from `web/`:
+### Web application (`web/`)
 
 | Command | Description |
 | --- | --- |
@@ -252,6 +261,14 @@ Run these from `web/`:
 | `npm test` | Run focused auth and Phase 3 utility/schema tests with Node's built-in test runner. |
 | `npm run build` | Type-check and create the production build in `web/dist`. |
 | `npm run preview` | Serve the production build locally. |
+
+### Python core (`packages/python_core/`)
+
+| Command | Description |
+| --- | --- |
+| `pytest packages/python_core/tests -v` | Run the complete automated test suite (56 tests). |
+| `ruff check packages/python_core` | Run Ruff linter. |
+| `ruff format --check packages/python_core` | Check Ruff code formatting. |
 
 ## Production build and Appwrite Sites
 
@@ -290,6 +307,8 @@ If direct navigation to a client-side route such as `/dashboard` returns a 404 o
 
 ## Documentation
 
+- [Phase 4 building manual](docs/phase4.md)
+- [Phase 4 implementation notes](docs/phase4-implementation-notes.md)
 - [Architecture and phase decisions](docs/architecture.md)
 - [Appwrite Cloud setup](docs/appwrite-setup.md)
 - [Phase 3 data model, permissions, and security tests](docs/data-model.md)
@@ -297,4 +316,4 @@ If direct navigation to a client-side route such as `/dashboard` returns a 404 o
 
 ## Next phase
 
-Phase 4 adds the shared Python core, PDF text extraction and validation, Pydantic schemas, and packaging for the future Appwrite Function. Phase 3 should be reviewed against a configured Appwrite project before Phase 4 begins.
+Phase 5 implements the Gemini API integration and the server-side Appwrite Function (`analyze-cv`). It consumes `cvmatch_core`, extracts structured profiles from CV text, parses job descriptions, evaluates requirement matching, computes deterministic scores, and saves analysis records.
