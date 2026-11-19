@@ -4,7 +4,7 @@ CVMatch AI helps a person understand how closely their CV matches a specific job
 
 **Product truth:** a compatibility score is a weighted measure of evidence in a CV. It is **not** the probability of getting hired, and it must never be presented as one.
 
-**Current status:** Phase 4 is implemented: shared Python core (`packages/python_core/`), byte-level PDF validation, PyMuPDF text extraction, normalization, and structured Pydantic extraction models. Gemini analysis, matching, recommendations, reports, Appwrite Functions, and the desktop client remain intentionally unimplemented for future phases.
+**Current status:** Phase 5 is implemented: Gemini API integration and the server-side Appwrite Function (`analyze-cv`) under `appwrite/functions/analyze-cv/`, structured AI output validation with Pydantic v2, deterministic compatibility scoring, objective ATS readiness checks, TableDB persistence for `analyses`, `requirement_matches`, and `recommendations` with strict row-level security, and vendoring workflow for `cvmatch_core`. PDF reports (Phase 7) and the desktop client (Phase 9) remain intentionally unimplemented for future phases.
 
 > **Backend verification status:** this repository contains no Appwrite provisioning script, server credentials, or live test results. The required database, tables, indexes, permissions, and private bucket must be created manually in Appwrite Console by following [docs/appwrite-setup.md](docs/appwrite-setup.md). No live Appwrite schema or cross-user access test has been verified from this workspace.
 
@@ -57,12 +57,29 @@ Phase 4 Python core and PDF extraction:
 - Programmatic synthetic PDF fixtures (zero real personal information in tests).
 - 56 automated tests with >90% statement coverage.
 
-Not implemented in Phase 4:
+Phase 5 Gemini integration and Appwrite Function:
 
-- Gemini API integration, ATS evaluation, scoring, requirement matching, recommendations, or analysis records (Phase 5+).
-- Appwrite Functions, PDF reports, or report downloads (Phase 5/7).
-- Desktop application (Phase 9).
-- OCR (scanned PDFs return `NO_TEXT` status; OCR is deferred per specifications).
+- Production-ready Appwrite Python Function `analyze-cv` under `appwrite/functions/analyze-cv/`.
+- Verified user identity extraction via `x-appwrite-user-id` and `x-appwrite-user-jwt` execution context headers.
+- Resource ownership verification on resumes and jobs before document or AI processing.
+- Private PDF download from Appwrite Storage (`resumes` bucket) using server credentials.
+- Integrated PDF validation and text extraction via vendored `cvmatch_core`.
+- Google Gemini API integration using official `google-genai` SDK with temperature 0.1 and prompt-injection defenses.
+- Structured AI output enforcement via Pydantic v2 `GeminiAnalysisOutput` schema.
+- Deterministic compatibility scoring in Python (weights sum to 100%, match score normalized to 1.0/0.5/0.0).
+- Proportional weight redistribution for jobs lacking requirements in some categories.
+- Objective ATS readiness scoring evaluating document structure, section headings, layout, and keyword alignment.
+- TablesDB persistence for `analyses`, `requirement_matches`, and `recommendations` with strict owner-scoped permissions.
+- Resume status and page count synchronization (`completed` / `failed`).
+- Reproducible vendoring workflow (`scripts/package-function.sh`) for packaging `cvmatch_core`.
+- 59 automated tests covering configuration, authentication, schemas, scoring, ATS, Gemini client, Appwrite data access, persistence, and main pipeline (115 tests total across the repo).
+
+Not implemented in Phase 5:
+
+- Frontend analysis results screens and progress indicators (Phase 6).
+- PDF report generation with ReportLab and report downloads (Phase 7).
+- Desktop client (Phase 9).
+- OCR for image-only PDFs (scanned PDFs return safe `PDF_TEXT_NOT_FOUND` error; OCR is deferred).
 
 ## Security and authorization
 
@@ -307,6 +324,8 @@ If direct navigation to a client-side route such as `/dashboard` returns a 404 o
 
 ## Documentation
 
+- [Phase 5 building manual](docs/phase5.md)
+- [Function deployment guide](docs/function-deployment.md)
 - [Phase 4 building manual](docs/phase4.md)
 - [Phase 4 implementation notes](docs/phase4-implementation-notes.md)
 - [Architecture and phase decisions](docs/architecture.md)
@@ -316,4 +335,4 @@ If direct navigation to a client-side route such as `/dashboard` returns a 404 o
 
 ## Next phase
 
-Phase 5 implements the Gemini API integration and the server-side Appwrite Function (`analyze-cv`). It consumes `cvmatch_core`, extracts structured profiles from CV text, parses job descriptions, evaluates requirement matching, computes deterministic scores, and saves analysis records.
+Phase 6 implements the frontend Analysis screens in the React web application (`/analyses/new` and `/analyses/:analysisId`), connecting the client directly to the `analyze-cv` function and presenting compatibility scores, requirement coverage, ATS readiness signals, evidence snippets, strengths, gaps, and prioritized recommendations.

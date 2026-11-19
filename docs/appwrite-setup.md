@@ -262,12 +262,132 @@ If metadata creation failed after the file upload, the app attempts best-effort 
 
 Resource calls may return a safe error after the session expires. Sign in again. Automatic redirect-on-401 for resource queries is deferred.
 
-## 10. What not to create yet
+## 10. Phase 5 Additions: Analysis Tables and Function
 
-- Do not create `analyses`, `requirement_matches`, `recommendations`, or `reports`.
-- Do not create the reports bucket.
-- Do not create an Appwrite Function, Function deployment, or Function environment variables.
-- Do not create a client-visible API key.
-- Do not add public table or bucket read permissions.
+In Phase 5, the following components are created in the Appwrite Cloud project:
+- Three new TablesDB tables: `analyses`, `requirement_matches`, `recommendations`
+- One server-side Python function: `analyze-cv`
+- One server-side API key for the function: `analyze-cv-function-key`
 
-These belong to later phases after the Phase 3 schema and permission model have been tested against a live project.
+The `reports` table and `reports` storage bucket remain reserved for Phase 7 (PDF reports). Do not create them yet.
+
+## 11. Phase 5 Setup Instructions
+
+### 11.1 Create the Three Analysis Tables
+
+Open the `cvmatch` database and create the following three tables:
+
+#### Table `analyses`
+- **ID:** `analyses`
+- **Row Security:** Enabled
+- **Table Permissions:** Grant `Create` to role `Users` only
+- **Columns:**
+  - `user_id` (String, size 36, required)
+  - `resume_id` (String, size 36, required)
+  - `job_id` (String, size 36, required)
+  - `status` (Enum: `queued`, `processing`, `completed`, `failed`, required)
+  - `compatibility_score` (Float, optional)
+  - `ats_score` (Float, optional)
+  - `requirement_coverage` (Float, optional)
+  - `scoring_version` (String, size 20, required, default `"1.0"`)
+  - `model_id` (String, size 100, optional)
+  - `error_code` (String, size 60, optional)
+  - `completed_at` (String, size 32, optional)
+- **Indexes:**
+  - `idx_analyses_user`: `user_id` (ASC)
+  - `idx_analyses_resume`: `resume_id` (ASC)
+  - `idx_analyses_job`: `job_id` (ASC)
+  - `idx_analyses_status`: `status` (ASC)
+
+#### Table `requirement_matches`
+- **ID:** `requirement_matches`
+- **Row Security:** Enabled
+- **Table Permissions:** Grant `Create` to role `Users` only
+- **Columns:**
+  - `analysis_id` (String, size 36, required)
+  - `requirement_id` (String, size 36, required)
+  - `status` (Enum: `matched`, `partially_matched`, `not_demonstrated`, `explicitly_missing`, required)
+  - `match_score` (Float, required)
+  - `evidence` (String, size 2000, optional)
+  - `source_section` (String, size 200, optional)
+  - `source_page` (Integer, optional)
+  - `explanation` (String, size 1000, optional)
+- **Indexes:**
+  - `idx_matches_analysis`: `analysis_id` (ASC)
+  - `idx_matches_req`: `requirement_id` (ASC)
+
+#### Table `recommendations`
+- **ID:** `recommendations`
+- **Row Security:** Enabled
+- **Table Permissions:** Grant `Create` to role `Users` only
+- **Columns:**
+  - `analysis_id` (String, size 36, required)
+  - `category` (String, size 60, required)
+  - `priority` (Integer, required)
+  - `title` (String, size 200, required)
+  - `description` (String, size 2000, required)
+  - `suggested_action` (String, size 1000, optional)
+- **Indexes:**
+  - `idx_recs_analysis`: `analysis_id` (ASC)
+  - `idx_recs_priority`: `priority` (ASC)
+
+### 11.2 Create Server API Key for Function
+
+In **Project Settings → API Keys**, create `analyze-cv-function-key`:
+- **Console UI Checkbox Selection:**
+  - Locate category **Databases**: Check **`read`** and **`write`** (enables read and write access to documents in `cvmatch`).
+  - Locate category **Storage**: Check **`read`** (enables read access to download raw PDF files from the private `resumes` bucket).
+- **Equivalent Appwrite CLI / API Scopes:**
+  - `databases.read` (or `documents.read`)
+  - `databases.write` (or `documents.write`)
+  - `files.read`
+- **Scopes NOT to Grant:**
+  - Do NOT grant user management (`users.read`, `users.write`), project administration, or storage write/delete permissions.
+- **Function Execution Permissions Note:**
+  - Function execution permissions are NOT set on the API key. They are configured on the Function itself (`Execute Permissions: Users`).
+- Record the generated secret key to set as `APPWRITE_API_KEY` in the Function's variables.
+
+### 11.3 Function Execution Security and Invocation Flow
+
+CVMatch AI employs a defense-in-depth model combining gateway-level authorization and server-side session verification:
+
+```
+[ Frontend (Client SDK) ]
+          │
+          │ 1. functions.createExecution("6afb06d2000dc82cad3e", body)
+          │    (Transmits active Appwrite session cookie `a_session_*`)
+          ▼
+[ Appwrite API Gateway ]
+          │
+          ├─► Enforces `Execute: ["users"]` (rejects unauthenticated/guest calls)
+          ├─► Strips any untrusted client-supplied `x-appwrite-*` headers
+          ├─► Injects verified context headers:
+          │     - `x-appwrite-user-id`: Caller's verified Appwrite user ID
+          │     - `x-appwrite-user-jwt`: Short-lived JWT scoped to caller
+          ▼
+[ analyze-cv Function (src/main.py) ]
+          │
+          ├─► 2. Extract context headers (src/auth.py)
+          ├─► 3. Initialize user-scoped Appwrite Client with JWT
+          ├─► 4. Verify Identity: Call Account(user_client).get()
+          │     - Confirms JWT is valid, active, and not expired
+          │     - Confirms account ID matches `x-appwrite-user-id`
+          │     - Rejects any forged/stale token with 401 AccessDenied
+          ├─► 5. Resource Ownership Check:
+          │     - Query `resumes` and `jobs` tables using caller's user_id filter
+          │     - Return 404 (NotFound) if resource does not belong to caller
+          └─► 6. Execute PDF Extraction & Gemini Analysis
+```
+
+#### Client SDK vs Direct HTTP Function URL Invocations:
+1. **Client SDK Invocation (`functions.createExecution`)**:
+   - The primary invocation method used by the frontend web and desktop apps.
+   - Appwrite verifies user authentication against the session cookie before routing to the container.
+   - Appwrite injects `x-appwrite-user-id` and `x-appwrite-user-jwt`.
+2. **Direct HTTP Function URL / Domain Invocation**:
+   - If invoked over raw HTTP outside the SDK, external clients cannot inject trusted internal headers.
+   - Any external caller attempting to supply fabricated `x-appwrite-user-id` or missing JWT fails verification in Step 4 (`Account(user_client).get()` raises 401 Unauthorized), safely blocking impersonation attacks.
+
+### 11.4 Deploy and Configure analyze-cv Function
+
+Follow the complete step-by-step instructions in [function-deployment.md](function-deployment.md) to package, deploy, and verify the `analyze-cv` function.

@@ -1,0 +1,16 @@
+{
+  "projectId": "6ada02b1000561eccaf9",
+  "endpoint": "https://fra.cloud.appwrite.io/v1",
+  "functions": [
+    {
+      "$id": "6afb06d2000dc82cad3e",
+      "name": "analyze-cv",
+      "runtime": "python-3.12",
+      "path": "functions/analyze-cv",
+      "entrypoint": "src/main.py",
+      "execute": ["users"],
+      "timeout": 300,
+      "enabled": true
+    }
+  ]
+}

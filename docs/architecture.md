@@ -357,3 +357,22 @@ These decisions belong to the phases that implement them and should be documente
 | Privacy and security | In-memory synthetic test fixtures only; no real CVs or PII; no permanent file writes or external calls. |
 | Automated testing | 56 pytest tests covering models, normalizer, validator, and extractor with >90% code coverage. |
 | Code quality | Ruff formatting and linting pass with zero errors. |
+
+## Phase 5 acceptance mapping
+
+| Requirement | Implementation |
+| --- | --- |
+| Appwrite Function structure | `appwrite/functions/analyze-cv/` with modular architecture (`main`, `config`, `auth`, `data`, `schemas`, `gemini`, `scoring`, `ats`, `persistence`, `exceptions`). |
+| Runtime & deployment | Python 3.12 runtime, `appwrite.config.json` entry configured with `execute: ["users"]` and 300s timeout. |
+| Caller authentication | User identity and session JWT extracted from `x-appwrite-user-id` and `x-appwrite-user-jwt` headers; unauthenticated calls rejected with 401 `ACCESS_DENIED`. |
+| Ownership verification | Explicit caller ownership enforcement on `resumes` and `jobs` before document or AI processing; unauthorized access returns 404. |
+| PDF download & extraction | Server client downloads private PDF from `resumes` bucket; `cvmatch_core` extracts text and detects image-only PDFs (422 `PDF_TEXT_NOT_FOUND`). |
+| Gemini API integration | Google GenAI SDK (`google-genai` 3.5+) with low temperature (0.1), prompt-injection defense (`DATA ONLY` delimiters), and structured output schema enforcement. |
+| Structured validation | Pydantic v2 `GeminiAnalysisOutput` model validates all AI outputs before consumption; malformed output returns 502 `ANALYSIS_VALIDATION_ERROR`. |
+| Deterministic scoring | Python calculates overall score (0.0–100.0), ATS score (0.0–100.0), and requirement coverage (0.0–1.0); match scores normalized to 1.0, 0.5, 0.0. |
+| Weight redistribution | Unused category weights are proportionally redistributed across active categories, preserving total scale of 100 without score inflation. |
+| Database persistence | Privileged server client creates `analyses`, `requirement_matches`, and `recommendations` with owner-only row permissions (`read/update/delete(user:{user_id})`). |
+| Resume status tracking | Updates resume row `page_count` and `extraction_status` (`completed` or `failed`). |
+| Vendoring workflow | `scripts/package-function.sh` vendors `cvmatch_core` into `analyze-cv/vendor/` and configures `sys.path` injection. |
+| Testing | 59 unit and integration tests across 9 test modules with 100% mocked offline execution. |
+| Code quality | Ruff formatting and linting pass with zero errors across all Phase 5 files. |
